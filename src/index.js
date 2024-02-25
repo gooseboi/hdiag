@@ -1,12 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
-import reportWebVitals from './reportWebVitals';
+import { Excalidraw } from '@excalidraw/excalidraw';
+
+window.EXCALIDRAW_ASSET_PATH = "/excalidraw";
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+	<div style={{ height: "500px" }}>
+		<Excalidraw />
+    </div>
   </React.StrictMode>
 );
