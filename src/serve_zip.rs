@@ -1,7 +1,12 @@
-use std::{io::Cursor, net::SocketAddr, path::{Path, PathBuf}, sync::Arc};
+use std::{io::Cursor, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use axum::{
-    body::Body, extract::{self, State}, http::{header, Response, StatusCode}, response::IntoResponse, routing::get, Router
+    body::Body,
+    extract::{self, State},
+    http::{header, Response, StatusCode},
+    response::IntoResponse,
+    routing::get,
+    Router,
 };
 use color_eyre::Result;
 use tokio::task::spawn_blocking;
@@ -17,7 +22,12 @@ struct AppState {
 
 type StatusResult<T> = Result<T, (StatusCode, String)>;
 
-pub async fn serve_zip(name: &str, input_name: &str, input_contents: &[u8], zip_bytes: &[u8]) -> Result<()> {
+pub async fn serve_zip(
+    name: &str,
+    input_name: &str,
+    input_contents: &[u8],
+    zip_bytes: &[u8],
+) -> Result<()> {
     let state = AppState {
         zip_file: zip_bytes.to_vec().into(),
         input_contents: input_contents.to_vec().into(),
@@ -44,16 +54,14 @@ async fn fetch_from_zip(
     State(state): State<AppState>,
     extract::Path(path): extract::Path<PathBuf>,
 ) -> StatusResult<impl IntoResponse> {
-    fetch_path_from_zip(state.zip_file, path).await
+    fetch_path_from_zip(state, path).await
 }
 
-async fn fetch_root_from_zip(
-    State(state): State<AppState>,
-) -> StatusResult<impl IntoResponse> {
-    fetch_path_from_zip(state.zip_file, PathBuf::from("index.html")).await
+async fn fetch_root_from_zip(State(state): State<AppState>) -> StatusResult<impl IntoResponse> {
+    fetch_path_from_zip(state, PathBuf::from("index.html")).await
 }
 
-fn find_file_in_zip(zip_file: Arc<[u8]>, path: String) -> StatusResult<Vec<u8>> {
+fn find_file_in_zip(zip_file: &[u8], path: &str) -> StatusResult<Vec<u8>> {
     let mut zip = ZipArchive::new(Cursor::new(&zip_file))
         .expect("Failed to read zip archive as a zip archive");
     let res = match zip.by_name(path.as_ref()) {
@@ -76,13 +84,13 @@ fn find_file_in_zip(zip_file: Arc<[u8]>, path: String) -> StatusResult<Vec<u8>> 
     res
 }
 
-async fn fetch_path_from_zip(zip_file: Arc<[u8]>, path: PathBuf) -> StatusResult<Response<Body>> {
-    let mime = if let Some(ext) = path.extension() {
-        let ext = ext.to_str().expect("Extension is UTF-8");
-        mime_guess::from_ext(ext).first_or_octet_stream()
-    } else {
-        mime::APPLICATION_OCTET_STREAM
-    };
+async fn fetch_path_from_zip(state: AppState, path: PathBuf) -> StatusResult<Response<Body>> {
+    let mime = path
+        .extension()
+        .map_or(mime::APPLICATION_OCTET_STREAM, |ext| {
+            let ext = ext.to_str().expect("Extension is UTF-8");
+            mime_guess::from_ext(ext).first_or_octet_stream()
+        });
 
     let path = path
         .to_str()
@@ -92,14 +100,18 @@ async fn fetch_path_from_zip(zip_file: Arc<[u8]>, path: PathBuf) -> StatusResult
         ))?
         .to_string();
     debug!(%path, "Requested file from zip");
-    // TODO: Serve the file
-    let bytes = spawn_blocking(move || find_file_in_zip(zip_file, path.to_string()))
-        .await
-        .expect("Error joining thread")?;
+    let name = state.input_name.as_ref();
+    let bytes = match path {
+        n if n == name => state.input_contents.to_vec(),
+        _ => spawn_blocking(move || find_file_in_zip(&state.zip_file, &path))
+            .await
+            .expect("Error joining thread")?,
+    };
 
     let res = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, mime.essence_str())
-        .body(Body::from(bytes)).expect("Couldn't make response");
+        .body(Body::from(bytes))
+        .expect("Couldn't make response");
     Ok(res)
 }
