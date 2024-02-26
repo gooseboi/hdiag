@@ -8,11 +8,14 @@
 use color_eyre::Result;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-const EXCALIDRAW_APP_ASSETS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/excalidraw-app.zip"));
+mod serve_zip;
+use serve_zip::serve_zip;
 
-async fn serve_app() -> Result<()> {
+const EXCALIDRAW_APP_ASSETS: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/excalidraw-app.zip"));
 
-    todo!()
+async fn serve_excalidraw() -> Result<()> {
+    serve_zip("excalidraw", "input.excalidraw", todo!(), EXCALIDRAW_APP_ASSETS).await
 }
 
 fn main() -> Result<()> {
@@ -27,6 +30,13 @@ fn main() -> Result<()> {
 
     println!("{}", EXCALIDRAW_APP_ASSETS.len());
     println!("Hello, world!");
+
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async move { serve_excalidraw().await })
+        .unwrap();
 
     Ok(())
 }
