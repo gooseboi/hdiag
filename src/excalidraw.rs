@@ -1,4 +1,4 @@
-use std::{io::Cursor, fmt::Write as _, net::SocketAddr, sync::Arc};
+use std::{fmt::Write as _, io::Cursor, net::SocketAddr, sync::Arc};
 
 use base64::prelude::*;
 use color_eyre::{
@@ -102,7 +102,9 @@ fn get_used_fonts_base64(style: &str) -> Result<String> {
             };
             let mut buf = vec![0; bytes.len() * 4 / 3 + 4];
 
-            let bytes_written = BASE64_STANDARD.encode_slice(&bytes, &mut buf).wrap_err("Failed encoding bytes for font as base64")?;
+            let bytes_written = BASE64_STANDARD
+                .encode_slice(&bytes, &mut buf)
+                .wrap_err("Failed encoding bytes for font as base64")?;
 
             // shorten our vec down to just what was written
             buf.truncate(bytes_written);
@@ -111,14 +113,18 @@ fn get_used_fonts_base64(style: &str) -> Result<String> {
         })
         .collect();
     let fonts = fonts.wrap_err("Failed to get font file in base 64")?;
-    let fonts_str = fonts
-        .into_iter()
-        .try_fold(String::new(), |mut output, (font_name, font_b64)| {
-            let family = format!("font-family: \"{font_name}\";");
-            let src = format!("src: url(data:font/woff2;charset=utf-8;base64,{font_b64}) format('woff2');");
-            write!(output, "@font-face {{ {family} {src} }}").wrap_err("Failed writing base64 encoded font to string")?;
-            Ok::<String, color_eyre::Report>(output)
-        })?;
+    let fonts_str =
+        fonts
+            .into_iter()
+            .try_fold(String::new(), |mut output, (font_name, font_b64)| {
+                let family = format!("font-family: \"{font_name}\";");
+                let src = format!(
+                    "src: url(data:font/woff2;charset=utf-8;base64,{font_b64}) format('woff2');"
+                );
+                write!(output, "@font-face {{ {family} {src} }}")
+                    .wrap_err("Failed writing base64 encoded font to string")?;
+                Ok::<String, color_eyre::Report>(output)
+            })?;
     Ok(fonts_str)
 }
 

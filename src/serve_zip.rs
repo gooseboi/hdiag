@@ -143,6 +143,7 @@ pub fn goto_page_chrome(addr: SocketAddr) -> Result<()> {
     info!(url, "Navigating to page");
     tab.navigate_to(&url).map_err(make_eyre)?;
     tab.wait_until_navigated().map_err(make_eyre)?;
+    info!(url, "Finished navigating to page");
 
     // That's it. We just need to go there, chrome loads the js, and the js
     // posts to the http server with the svg and we get the svg
