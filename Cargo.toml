@@ -9,6 +9,7 @@ edition = "2021"
 axum = "0.7.4"
 clap = { version = "4.5.1", features = ["derive"] }
 color-eyre = "0.6.2"
+headless_chrome = "1.0.9"
 mime = "0.3.17"
 mime_guess = "2.0.4"
 tokio = { version = "1.36.0", features = ["full"] }

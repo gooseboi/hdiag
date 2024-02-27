@@ -11,8 +11,8 @@ use clap::{Parser, ValueEnum};
 use color_eyre::{eyre::WrapErr, Result};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+mod excalidraw;
 mod serve_zip;
-use serve_zip::serve_zip;
 
 const EXCALIDRAW_APP_ASSETS: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/excalidraw-app.zip"));
@@ -32,16 +32,6 @@ enum FileTypes {
     Excalidraw,
     Drawio,
     Inferred,
-}
-
-async fn serve_excalidraw(input_contents: &[u8]) -> Result<()> {
-    serve_zip(
-        "excalidraw",
-        "input.excalidraw",
-        input_contents,
-        EXCALIDRAW_APP_ASSETS,
-    )
-    .await
 }
 
 fn main() -> Result<()> {
@@ -75,12 +65,19 @@ fn main() -> Result<()> {
         buf
     };
 
-    tokio::runtime::Builder::new_current_thread()
+    let result = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("Failed to start tokio runtime")
-        .block_on(async move { serve_excalidraw(&input_contents).await })
+        .block_on(
+            async move { excalidraw::get_svg_from(EXCALIDRAW_APP_ASSETS, input_contents).await },
+        )
         .expect("Failed to serve folder contents");
+
+    println!(
+        "As string: \"{}\"",
+        String::from_utf8(result).expect("Response is valid UTF-8")
+    );
 
     Ok(())
 }

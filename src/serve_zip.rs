@@ -1,16 +1,17 @@
 use std::{io::Cursor, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use axum::{
-    body::Body,
+    body::{Body, Bytes},
     extract::{self, State},
     http::{header, Response, StatusCode},
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
     Router,
 };
-use color_eyre::Result;
-use tokio::task::spawn_blocking;
-use tracing::{debug, warn};
+use color_eyre::{eyre::eyre, Result};
+use headless_chrome::{Browser, LaunchOptionsBuilder};
+use tokio::{net::TcpListener, sync::mpsc::Sender, task::spawn_blocking};
+use tracing::{debug, info, warn};
 use zip::ZipArchive;
 
 #[derive(Clone)]
@@ -18,29 +19,32 @@ struct AppState {
     zip_file: Arc<[u8]>,
     input_contents: Arc<[u8]>,
     input_name: Arc<str>,
+    svg_channel: Arc<Sender<Vec<u8>>>,
 }
 
 type StatusResult<T> = Result<T, (StatusCode, String)>;
 
-pub async fn serve_zip(
+pub async fn http_serve(
+    listener: TcpListener,
     name: &str,
     input_name: &str,
     input_contents: &[u8],
     zip_bytes: &[u8],
+    svg_channel: Arc<Sender<Vec<u8>>>,
 ) -> Result<()> {
     let state = AppState {
         zip_file: zip_bytes.to_vec().into(),
         input_contents: input_contents.to_vec().into(),
         input_name: input_name.to_string().into(),
+        svg_channel,
     };
 
     let app = Router::new()
         .route("/", get(fetch_root_from_zip))
         .route("/*path", get(fetch_from_zip))
+        .route("/return", post(output_from_app))
         .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 0));
-    let listener = tokio::net::TcpListener::bind(addr).await?;
     let addr = listener
         .local_addr()
         .expect("The listener is already bound");
@@ -114,4 +118,34 @@ async fn fetch_path_from_zip(state: AppState, path: PathBuf) -> StatusResult<Res
         .body(Body::from(bytes))
         .expect("Couldn't make response");
     Ok(res)
+}
+
+async fn output_from_app(State(state): State<AppState>, body: Bytes) -> StatusResult<()> {
+    state
+        .svg_channel
+        .send(body.as_ref().to_vec())
+        .await
+        .unwrap_or_else(|_| panic!("Failed sending svg body through oneshot channel"));
+
+    Ok(())
+}
+
+pub fn goto_page_chrome(addr: SocketAddr) -> Result<()> {
+    let make_eyre = |e| eyre!("{e}");
+    let browser =
+        Browser::new(LaunchOptionsBuilder::default().headless(true).build()?).map_err(make_eyre)?;
+
+    let tab = browser.new_tab().map_err(make_eyre)?;
+
+    let ip = addr.ip();
+    let port = addr.port();
+    let url = format!("http://{ip}:{port}/index.html");
+    info!(url, "Navigating to page");
+    tab.navigate_to(&url).map_err(make_eyre)?;
+    tab.wait_until_navigated().map_err(make_eyre)?;
+
+    // That's it. We just need to go there, chrome loads the js, and the js
+    // posts to the http server with the svg and we get the svg
+
+    Ok(())
 }
