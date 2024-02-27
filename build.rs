@@ -39,7 +39,9 @@ where
         let rel_path = entry_path
             .strip_prefix(&source_path)
             .expect("Entry's path was not prefixed by build dir")
-            .to_string_lossy();
+            .to_string_lossy()
+            // Fucking windows
+            .replace('\\', "/");
         let meta = entry.metadata().expect("Failed to get entry metadata");
 
         if meta.is_dir() {
@@ -87,7 +89,6 @@ fn generate_excalidraw_assets(manifest_dir: &Path, out_dir: &Path) {
     }
 
     let excalidraw_build_dir = excalidraw_app_dir.join("dist");
-    rmdir_force(&excalidraw_build_dir);
 
     let mut pnpm = Command::new("pnpm")
         .arg("install")

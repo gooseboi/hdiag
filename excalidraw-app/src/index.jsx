@@ -1,5 +1,3 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
 import { exportToSvg, loadFromBlob } from "@excalidraw/excalidraw";
 
 window.onload = async function main() {
