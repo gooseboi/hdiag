@@ -90,7 +90,11 @@ fn find_file_in_zip(zip_file: &[u8], path: &str) -> StatusResult<Vec<u8>> {
         .expect("Failed to read zip archive as a zip archive");
     let res = match zip.by_name(path.as_ref()) {
         Ok(mut entry) => {
-            debug!(name = entry.name(), size = size_str(entry.size()), "Found zip entry");
+            debug!(
+                name = entry.name(),
+                size = size_str(entry.size()),
+                "Found zip entry"
+            );
             let mut bytes = vec![];
             std::io::copy(&mut entry, &mut bytes).map_err(|e| {
                 (

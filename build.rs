@@ -149,5 +149,5 @@ fn generate_excalidraw_assets(manifest_dir: &Path, out_dir: &Path) {
         .expect("Failed waiting for `pnpm run build`");
 
     let bundle_path = out_dir.join("excalidraw-app.zip");
-    gen_zip_file(&excalidraw_build_dir, bundle_path);
+    gen_zip_file(excalidraw_build_dir, bundle_path);
 }
