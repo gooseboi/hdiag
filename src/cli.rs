@@ -118,7 +118,10 @@ impl Opts {
 
         let output_path = cli.output_path.map_or_else(
             || {
-                let mut p = input_file.clone();
+                let name = input_file
+                    .file_name()
+                    .expect("File had no file name to infert output file");
+                let mut p = PathBuf::from(name);
                 p.set_extension("svg");
                 p
             },
