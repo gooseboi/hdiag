@@ -10,7 +10,7 @@ use tracing::info;
 use zip::ZipArchive;
 
 use crate::{
-    cli::{self, OutputFormat},
+    cli,
     serve_zip::{goto_page_chrome, http_serve},
 };
 
@@ -168,7 +168,7 @@ pub fn embed_fonts(raw_svg: &str) -> Result<String> {
 
 pub fn render_svg(
     input_contents: Vec<u8>,
-    output_format: &OutputFormat,
+    output_format: &cli::FontFormat,
     export_opts: cli::ExportOpts,
 ) -> Result<String> {
     let raw_svg = tokio::runtime::Builder::new_current_thread()
@@ -182,14 +182,14 @@ pub fn render_svg(
         })?;
     info!("Finished rendering raw svg");
 
-    if *output_format == cli::OutputFormat::Raw {
+    if *output_format == cli::FontFormat::Raw {
         return Ok(raw_svg);
     }
 
     let embedded_fonts_svg = embed_fonts(&raw_svg).wrap_err("Failed embedding fonts into svg")?;
     info!("Finished embedding fonts in svg");
 
-    if *output_format == cli::OutputFormat::Embedded {
+    if *output_format == cli::FontFormat::Embed {
         return Ok(embedded_fonts_svg);
     }
 

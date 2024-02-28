@@ -18,8 +18,8 @@ pub struct Cli {
     output_path: Option<PathBuf>,
 
     /// What type of svg should be outputted
-    #[arg(short = 'f', value_enum, default_value_t = OutputFormats::Path)]
-    output_format: OutputFormats,
+    #[arg(short = 'f', value_enum, default_value_t = FontFormats::Path)]
+    font_output_format: FontFormats,
 
     /// What theme should the svg be exported in
     #[arg(long = "theme", value_enum, default_value_t = OutputTheme::Dark)]
@@ -46,11 +46,13 @@ enum FileTypes {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-enum OutputFormats {
+enum FontFormats {
     /// The raw svg outputted by the renderer for the filetype
     Raw,
+    /// Embed no fonts into the svg, and rely on the system installed ones
+    NoFont,
     /// Embed the font files inside the svg
-    Embedded,
+    Embed,
     /// Convert all text in the svg to paths.
     /// This means no embedded fonts, and no text in the svg, but less
     /// filesize and more portable
@@ -69,10 +71,11 @@ pub enum FileType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum OutputFormat {
+pub enum FontFormat {
     Raw,
-    Embedded,
+    Embed,
     Path,
+    NoFont,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -87,7 +90,7 @@ pub struct Opts {
     pub input_file: PathBuf,
     pub input_type: FileType,
     pub output_file: PathBuf,
-    pub output_format: OutputFormat,
+    pub output_format: FontFormat,
     pub export: ExportOpts,
 }
 
@@ -150,10 +153,11 @@ impl Opts {
             }
         };
 
-        let output_format = match cli.output_format {
-            OutputFormats::Raw => OutputFormat::Raw,
-            OutputFormats::Embedded => OutputFormat::Embedded,
-            OutputFormats::Path => OutputFormat::Path,
+        let output_format = match cli.font_output_format {
+            FontFormats::Raw => FontFormat::Raw,
+            FontFormats::Embed => FontFormat::Embed,
+            FontFormats::Path => FontFormat::Path,
+            FontFormats::NoFont => FontFormat::NoFont,
         };
 
         let export_opts = ExportOpts {
