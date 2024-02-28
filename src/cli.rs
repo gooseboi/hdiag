@@ -45,17 +45,20 @@ enum OutputFormats {
     Path,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FileType {
     Excalidraw,
     Drawio,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OutputFormat {
     Raw,
     Embedded,
     Path,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Opts {
     pub input_file: PathBuf,
     pub input_type: FileType,

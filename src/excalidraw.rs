@@ -6,9 +6,13 @@ use color_eyre::{
     Result,
 };
 use tokio::sync::mpsc;
+use tracing::info;
 use zip::ZipArchive;
 
-use crate::serve_zip::{goto_page_chrome, http_serve};
+use crate::{
+    cli::{self, OutputFormat},
+    serve_zip::{goto_page_chrome, http_serve},
+};
 
 const EXCALIDRAW_APP_ASSETS: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/excalidraw-app.zip"));
@@ -150,4 +154,30 @@ pub fn embed_fonts(raw_svg: &str) -> Result<String> {
     let before_style = &raw_svg[..(start_pos + start_str.len())];
     let after_style = &raw_svg[end_pos..];
     Ok(format!("{before_style}{embedded_style}{after_style}"))
+}
+
+pub fn render_svg(input_contents: Vec<u8>, output_format: &OutputFormat) -> Result<String> {
+    let raw_svg = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to start tokio runtime")
+        .block_on(async move {
+            raw_svg(input_contents)
+                .await
+                .wrap_err("Failed getting svg from excalidraw")
+        })?;
+    info!("Finished rendering raw svg");
+
+    if *output_format == cli::OutputFormat::Raw {
+        return Ok(raw_svg);
+    }
+
+    let embedded_fonts_svg = embed_fonts(&raw_svg).wrap_err("Failed embedding fonts into svg")?;
+    info!("Finished embedding fonts in svg");
+
+    if *output_format == cli::OutputFormat::Embedded {
+        return Ok(embedded_fonts_svg);
+    }
+
+    todo!("Unsupported output format {output_format:?} for excalidraw");
 }

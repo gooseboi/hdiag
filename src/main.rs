@@ -51,20 +51,8 @@ fn main() -> Result<()> {
                 buf
             };
 
-            let raw_svg = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("Failed to start tokio runtime")
-                .block_on(async move {
-                    excalidraw::raw_svg(input_contents)
-                        .await
-                        .wrap_err("Failed getting svg from excalidraw")
-                })?;
-            info!("Finished rendering raw svg");
-
-            let embedded_fonts_svg =
-                excalidraw::embed_fonts(&raw_svg).wrap_err("Failed embedding fonts into svg")?;
-            info!("Finished embedding fonts in svg");
+            let svg = excalidraw::render_svg(input_contents, &cli.output_format)
+                .wrap_err("Failed rendering excalidraw svg")?;
 
             let mut f = fs::OpenOptions::new()
                 .write(true)
@@ -73,7 +61,7 @@ fn main() -> Result<()> {
                 .create(true)
                 .open(&cli.output_file)
                 .wrap_err("Failed to open output file")?;
-            f.write_all(&embedded_fonts_svg.into_bytes())
+            f.write_all(&svg.into_bytes())
                 .wrap_err("Failed to write svg to file")?;
 
             info!(output_path = %cli.output_file.display(), "Saved svg");
