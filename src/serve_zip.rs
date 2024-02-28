@@ -117,7 +117,8 @@ fn find_file_in_zip(zip_file: &[u8], path: &str) -> StatusResult<Vec<u8>> {
 }
 
 async fn fetch_export_opts(State(state): State<AppState>) -> Response<Body> {
-    let body = serde_json::to_string(state.export_opts.as_ref()).expect("Failed converting json to string");
+    let body = serde_json::to_string(state.export_opts.as_ref())
+        .expect("Failed converting json to string");
     Response::builder()
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::new(body))
