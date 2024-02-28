@@ -14,6 +14,26 @@ use tokio::{net::TcpListener, sync::mpsc::Sender, task::spawn_blocking};
 use tracing::{debug, info, warn};
 use zip::ZipArchive;
 
+#[allow(clippy::cast_precision_loss)]
+pub fn size_str(n: u64) -> String {
+    const BYTE_SIZE: u64 = 1024;
+
+    if n < BYTE_SIZE {
+        format!("{n} B")
+    } else if n < BYTE_SIZE.pow(2) {
+        let n = (n as f64) / (BYTE_SIZE as f64).powi(1);
+        format!("{n:.1} KiB")
+    } else if n < BYTE_SIZE.pow(3) {
+        let n = (n as f64) / (BYTE_SIZE as f64).powi(2);
+        format!("{n:.1} MiB")
+    } else if n < BYTE_SIZE.pow(4) {
+        let n = (n as f64) / (BYTE_SIZE as f64).powi(3);
+        format!("{n:.1} GiB")
+    } else {
+        "Too big".to_owned()
+    }
+}
+
 #[derive(Clone)]
 struct AppState {
     zip_file: Arc<[u8]>,
@@ -70,7 +90,7 @@ fn find_file_in_zip(zip_file: &[u8], path: &str) -> StatusResult<Vec<u8>> {
         .expect("Failed to read zip archive as a zip archive");
     let res = match zip.by_name(path.as_ref()) {
         Ok(mut entry) => {
-            debug!(name = entry.name(), size = entry.size(), "Found zip entry");
+            debug!(name = entry.name(), size = size_str(entry.size()), "Found zip entry");
             let mut bytes = vec![];
             std::io::copy(&mut entry, &mut bytes).map_err(|e| {
                 (
