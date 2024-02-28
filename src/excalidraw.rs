@@ -22,6 +22,7 @@ const EXCALIDRAW_FONTS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/excali
 pub async fn get_svg_from(
     excalidraw_assets_zip: &'static [u8],
     input_contents: Vec<u8>,
+    export_opts: cli::ExportOpts,
 ) -> Result<Vec<u8>> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 0));
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -29,6 +30,14 @@ pub async fn get_svg_from(
         .local_addr()
         .expect("The listener is already bound");
 
+    let export_opts = {
+        let is_dark_mode = export_opts.theme == cli::OutputTheme::Dark;
+        serde_json::json!({
+            "exportBackground": export_opts.include_background,
+            "exportEmbedScene": export_opts.embed_source,
+            "exportWithDarkMode": is_dark_mode,
+        })
+    };
     let (tx, mut rx) = mpsc::channel(1);
     let http_server = tokio::spawn(async move {
         http_serve(
@@ -38,6 +47,7 @@ pub async fn get_svg_from(
             &input_contents,
             excalidraw_assets_zip,
             Arc::new(tx),
+            export_opts,
         )
         .await
     });
@@ -132,8 +142,8 @@ fn get_used_fonts_base64(style: &str) -> Result<String> {
     Ok(fonts_str)
 }
 
-pub async fn raw_svg(input_contents: Vec<u8>) -> Result<String> {
-    let result = get_svg_from(EXCALIDRAW_APP_ASSETS, input_contents)
+pub async fn raw_svg(input_contents: Vec<u8>, export_opts: cli::ExportOpts) -> Result<String> {
+    let result = get_svg_from(EXCALIDRAW_APP_ASSETS, input_contents, export_opts)
         .await
         .wrap_err("Failed to get svg from excalidraw app")?;
 
@@ -156,13 +166,17 @@ pub fn embed_fonts(raw_svg: &str) -> Result<String> {
     Ok(format!("{before_style}{embedded_style}{after_style}"))
 }
 
-pub fn render_svg(input_contents: Vec<u8>, output_format: &OutputFormat) -> Result<String> {
+pub fn render_svg(
+    input_contents: Vec<u8>,
+    output_format: &OutputFormat,
+    export_opts: cli::ExportOpts,
+) -> Result<String> {
     let raw_svg = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("Failed to start tokio runtime")
         .block_on(async move {
-            raw_svg(input_contents)
+            raw_svg(input_contents, export_opts)
                 .await
                 .wrap_err("Failed getting svg from excalidraw")
         })?;

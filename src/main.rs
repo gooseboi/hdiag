@@ -51,7 +51,7 @@ fn main() -> Result<()> {
                 buf
             };
 
-            let svg = excalidraw::render_svg(input_contents, &cli.output_format)
+            let svg = excalidraw::render_svg(input_contents, &cli.output_format, cli.export)
                 .wrap_err("Failed rendering excalidraw svg")?;
 
             let mut f = fs::OpenOptions::new()

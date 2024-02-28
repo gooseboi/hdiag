@@ -40,6 +40,7 @@ struct AppState {
     input_contents: Arc<[u8]>,
     input_name: Arc<str>,
     svg_channel: Arc<Sender<Vec<u8>>>,
+    export_opts: Arc<serde_json::Value>,
 }
 
 type StatusResult<T> = Result<T, (StatusCode, String)>;
@@ -51,16 +52,19 @@ pub async fn http_serve(
     input_contents: &[u8],
     zip_bytes: &[u8],
     svg_channel: Arc<Sender<Vec<u8>>>,
+    export_opts: serde_json::Value,
 ) -> Result<()> {
     let state = AppState {
         zip_file: zip_bytes.to_vec().into(),
         input_contents: input_contents.to_vec().into(),
         input_name: input_name.to_string().into(),
         svg_channel,
+        export_opts: Arc::new(export_opts),
     };
 
     let app = Router::new()
         .route("/", get(fetch_root_from_zip))
+        .route("/export_opts", get(fetch_export_opts))
         .route("/*path", get(fetch_from_zip))
         .route("/return", post(output_from_app))
         .with_state(state);
@@ -110,6 +114,14 @@ fn find_file_in_zip(zip_file: &[u8], path: &str) -> StatusResult<Vec<u8>> {
         }
     };
     res
+}
+
+async fn fetch_export_opts(State(state): State<AppState>) -> Response<Body> {
+    let body = serde_json::to_string(state.export_opts.as_ref()).expect("Failed converting json to string");
+    Response::builder()
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::new(body))
+        .expect("Failed creating response from export options")
 }
 
 async fn fetch_path_from_zip(state: AppState, path: PathBuf) -> StatusResult<Response<Body>> {

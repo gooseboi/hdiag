@@ -20,6 +20,18 @@ pub struct Cli {
     /// What type of svg should be outputted
     #[arg(short = 'f', value_enum, default_value_t = OutputFormats::Path)]
     output_format: OutputFormats,
+
+    /// What theme should the svg be exported in
+    #[arg(long = "theme", value_enum, default_value_t = OutputTheme::Dark)]
+    output_theme: OutputTheme,
+
+    /// Should the export have a background
+    #[arg(short = 'b', long = "background")]
+    output_background: bool,
+
+    /// Should the export bundle the program's source
+    #[arg(short = 's', long = "source")]
+    embed_source: bool,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -44,6 +56,11 @@ enum OutputFormats {
     /// filesize and more portable
     Path,
 }
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+pub enum OutputTheme {
+    Dark,
+    Light,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FileType {
@@ -59,11 +76,19 @@ pub enum OutputFormat {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExportOpts {
+    pub theme: OutputTheme,
+    pub include_background: bool,
+    pub embed_source: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Opts {
     pub input_file: PathBuf,
     pub input_type: FileType,
     pub output_file: PathBuf,
     pub output_format: OutputFormat,
+    pub export: ExportOpts,
 }
 
 fn is_valid_json<R: io::Read>(r: R) -> bool {
@@ -131,11 +156,18 @@ impl Opts {
             OutputFormats::Path => OutputFormat::Path,
         };
 
+        let export_opts = ExportOpts {
+            theme: cli.output_theme,
+            include_background: cli.output_background,
+            embed_source: cli.embed_source,
+        };
+
         Self {
             input_file,
             input_type,
             output_file: output_path,
             output_format,
+            export: export_opts,
         }
     }
 }
