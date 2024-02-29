@@ -9,6 +9,7 @@ window.onload = async function main() {
   appState.exportBackground = opts.exportBackground;
   appState.exportEmbedScene = opts.exportEmbedScene;
   appState.exportWithDarkMode = opts.exportWithDarkMode;
+  appState.exportScale = opts.exportScale;
   const svg = await exportToSvg({
     elements: scene.elements,
     appState: appState,

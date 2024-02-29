@@ -30,8 +30,12 @@ pub struct Cli {
     output_background: bool,
 
     /// Should the export bundle the program's source
-    #[arg(short = 's', long = "source")]
+    #[arg(long = "source")]
     embed_source: bool,
+
+    /// What scale should the export be in
+    #[arg(short, long = "scale", default_value_t = 1)]
+    scale: u8,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -83,6 +87,7 @@ pub struct ExportOpts {
     pub theme: OutputTheme,
     pub include_background: bool,
     pub embed_source: bool,
+    pub scale: u8,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -167,6 +172,7 @@ impl Opts {
             theme: cli.output_theme,
             include_background: cli.output_background,
             embed_source: cli.embed_source,
+            scale: cli.scale,
         };
 
         Self {

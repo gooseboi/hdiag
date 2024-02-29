@@ -6,7 +6,7 @@ use color_eyre::{
     Result,
 };
 use tokio::sync::mpsc;
-use tracing::info;
+use tracing::{info, warn};
 use zip::ZipArchive;
 
 use crate::{
@@ -32,10 +32,19 @@ pub async fn get_svg_from(
 
     let export_opts = {
         let is_dark_mode = export_opts.theme == cli::OutputTheme::Dark;
+        let scale = export_opts.scale;
+        let scale = if !matches!(scale, 1 | 2 | 3) {
+            let clamped = scale.clamp(1, 3);
+            warn!("Scale must be one of {{1, 2, 3}}, was {scale}, clamped to {clamped}");
+            clamped
+        } else {
+            scale
+        };
         serde_json::json!({
             "exportBackground": export_opts.include_background,
             "exportEmbedScene": export_opts.embed_source,
             "exportWithDarkMode": is_dark_mode,
+            "exportScale": scale
         })
     };
     let (tx, mut rx) = mpsc::channel(1);
