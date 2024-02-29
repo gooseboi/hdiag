@@ -65,6 +65,20 @@ pub async fn get_svg_from(
     Ok(bytes)
 }
 
+fn split_svg_with_fonts(raw_svg: &str) -> Result<(&str, &str, &str)> {
+    let start_str = "<style class=\"style-fonts\">";
+    let start_pos = raw_svg
+        .find(start_str)
+        .context("SVG has no start style tag")?;
+    let end_str = "</style>";
+    let end_pos = raw_svg.find(end_str).context("SVG has no end style tag")?;
+
+    let before = &raw_svg[..(start_pos + start_str.len())];
+    let after = &raw_svg[end_pos..];
+    let style = &raw_svg[(start_pos + start_str.len())..end_pos];
+    Ok((before, style, after))
+}
+
 fn get_used_fonts(style: &str) -> Result<Vec<(&str, &str)>> {
     let mut slice = style;
 
@@ -98,7 +112,7 @@ fn get_used_fonts(style: &str) -> Result<Vec<(&str, &str)>> {
     Ok(font_names.into_iter().zip(fonts).collect())
 }
 
-fn get_used_fonts_base64(style: &str) -> Result<String> {
+fn embed_fonts_as_base64(style: &str) -> Result<String> {
     let fonts = get_used_fonts(style).wrap_err("Failed processing font files")?;
     let fonts: Result<Vec<(&str, String)>> = fonts
         .into_iter()
@@ -150,20 +164,12 @@ pub async fn raw_svg(input_contents: Vec<u8>, export_opts: cli::ExportOpts) -> R
     String::from_utf8(result).wrap_err("Response from excalidraw was not valid UTF-8")
 }
 
-pub fn embed_fonts(raw_svg: &str) -> Result<String> {
-    let start_str = "<style class=\"style-fonts\">";
-    let start_pos = raw_svg
-        .find(start_str)
-        .context("SVG has no start style tag")?;
-    let end_str = "</style>";
-    let end_pos = raw_svg.find(end_str).context("SVG has no end style tag")?;
+pub fn embed_fonts(style: &str) -> Result<String> {
+    embed_fonts_as_base64(style).wrap_err("Failed getting fonts used in file")
+}
 
-    let style = &raw_svg[(start_pos + start_str.len())..(end_pos + end_str.len())];
-    let embedded_style =
-        get_used_fonts_base64(style).wrap_err("Failed getting fonts used in file")?;
-    let before_style = &raw_svg[..(start_pos + start_str.len())];
-    let after_style = &raw_svg[end_pos..];
-    Ok(format!("{before_style}{embedded_style}{after_style}"))
+pub const fn remove_fonts(_style: &str) -> String {
+    String::new()
 }
 
 pub fn render_svg(
@@ -186,11 +192,18 @@ pub fn render_svg(
         return Ok(raw_svg);
     }
 
-    let embedded_fonts_svg = embed_fonts(&raw_svg).wrap_err("Failed embedding fonts into svg")?;
-    info!("Finished embedding fonts in svg");
+    let (before, fonts, after) = split_svg_with_fonts(&raw_svg).wrap_err("Failed splitting svg before and after")?;
 
     if *output_format == cli::FontFormat::Embed {
-        return Ok(embedded_fonts_svg);
+        let embedded_fonts = embed_fonts(fonts).wrap_err("Failed to embed fonts into svg")?;
+        info!("Finished embedding fonts in svg");
+        let output_svg = format!("{before}{embedded_fonts}{after}");
+        return Ok(output_svg);
+    } else if *output_format == cli::FontFormat::NoFont {
+        let no_fonts = remove_fonts(fonts);
+        info!("Finished removing fonts from svg");
+        let output_svg = format!("{before}{no_fonts}{after}");
+        return Ok(output_svg);
     }
 
     todo!("Unsupported output format {output_format:?} for excalidraw");
