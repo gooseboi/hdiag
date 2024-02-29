@@ -33,12 +33,12 @@ pub async fn get_svg_from(
     let export_opts = {
         let is_dark_mode = export_opts.theme == cli::OutputTheme::Dark;
         let scale = export_opts.scale;
-        let scale = if !matches!(scale, 1 | 2 | 3) {
+        let scale = if matches!(scale, 1..=3) {
+            scale
+        } else {
             let clamped = scale.clamp(1, 3);
             warn!("Scale must be one of {{1, 2, 3}}, was {scale}, clamped to {clamped}");
             clamped
-        } else {
-            scale
         };
         serde_json::json!({
             "exportBackground": export_opts.include_background,
@@ -61,7 +61,7 @@ pub async fn get_svg_from(
         .await
     });
 
-    tokio::task::spawn_blocking(move || {
+    let chrome = tokio::task::spawn_blocking(move || {
         goto_page_chrome(addr).expect("Failed to navigate to the page with chrome");
     });
 
@@ -70,6 +70,7 @@ pub async fn get_svg_from(
     };
 
     http_server.abort();
+    chrome.abort();
 
     Ok(bytes)
 }
@@ -181,27 +182,22 @@ pub const fn remove_fonts(_style: &str) -> String {
     String::new()
 }
 
-pub fn render_svg(
+pub async fn render_svg(
     input_contents: Vec<u8>,
     output_format: &cli::FontFormat,
     export_opts: cli::ExportOpts,
 ) -> Result<String> {
-    let raw_svg = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("Failed to start tokio runtime")
-        .block_on(async move {
-            raw_svg(input_contents, export_opts)
-                .await
-                .wrap_err("Failed getting svg from excalidraw")
-        })?;
+    let raw_svg = raw_svg(input_contents, export_opts)
+        .await
+        .wrap_err("Failed getting svg from excalidraw")?;
     info!("Finished rendering raw svg");
 
     if *output_format == cli::FontFormat::Raw {
         return Ok(raw_svg);
     }
 
-    let (before, fonts, after) = split_svg_with_fonts(&raw_svg).wrap_err("Failed splitting svg before and after")?;
+    let (before, fonts, after) =
+        split_svg_with_fonts(&raw_svg).wrap_err("Failed splitting svg before and after")?;
 
     if *output_format == cli::FontFormat::Embed {
         let embedded_fonts = embed_fonts(fonts).wrap_err("Failed to embed fonts into svg")?;

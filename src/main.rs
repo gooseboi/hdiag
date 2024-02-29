@@ -30,6 +30,10 @@ fn main() -> Result<()> {
         .init();
     color_eyre::install()?;
 
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .wrap_err("Failed to build tokio runtime")?;
     match cli.input_type {
         cli::FileType::Excalidraw => {
             let mut input_file = fs::OpenOptions::new()
@@ -51,8 +55,11 @@ fn main() -> Result<()> {
                 buf
             };
 
-            let svg = excalidraw::render_svg(input_contents, &cli.output_format, cli.export)
-                .wrap_err("Failed rendering excalidraw svg")?;
+            let svg = rt.block_on(async move {
+                excalidraw::render_svg(input_contents, &cli.output_format, cli.export)
+                    .await
+                    .wrap_err("Failed rendering excalidraw svg")
+            })?;
 
             let mut f = fs::OpenOptions::new()
                 .write(true)
